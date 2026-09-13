@@ -13,7 +13,7 @@ export const maxDuration = 120; // generation can take a while
 
 export async function POST(request) {
   try {
-    const { prompt, appId } = await request.json();
+    const { prompt, appId, referenceImage } = await request.json();
 
     if (!prompt || typeof prompt !== "string" || prompt.trim().length < 3) {
       return NextResponse.json(
@@ -22,13 +22,20 @@ export async function POST(request) {
       );
     }
 
+    if (referenceImage != null) {
+      if (typeof referenceImage !== "string" || !referenceImage.startsWith("data:image/"))
+        return NextResponse.json({ error: "referenceImage must be an image data URL." }, { status: 400 });
+      if (referenceImage.length > 2 * 1024 * 1024)
+        return NextResponse.json({ error: "Reference image is too large." }, { status: 400 });
+    }
+
     // If we're iterating, feed the existing HTML back to the model.
     const existing = appId ? getApp(appId) : null;
     if (appId && !existing) {
       return NextResponse.json({ error: "That app no longer exists." }, { status: 404 });
     }
 
-    const generated = await generateApp(prompt.trim(), existing?.html ?? null);
+    const generated = await generateApp(prompt.trim(), existing?.html ?? null, referenceImage ?? null);
 
     const meta = saveApp({
       id: existing?.id,
